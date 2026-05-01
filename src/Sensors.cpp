@@ -1,5 +1,9 @@
 #include "Sensors.hpp"
 
+#define SHT4X_DEFAULT_ADDR 0x44
+#define SHT4X_CMD_MEASURE_HIGH_PRECISION 0xFD
+#define SHT4X_CMD_SOFT_RESET 0x94
+
 // Units and sensors registers
 
 #define X(unit, symbol, name) symbol,
@@ -73,6 +77,7 @@ bool Sensors::readAllSensors() {
     sen5xRead();
   }
   am2320Read();
+  sht4xRead();
   sht31Read();
   bme280Read();
   bmp280Read();
@@ -135,6 +140,7 @@ void Sensors::init(u_int pms_type, int pms_rx, int pms_tx) {
   bme280Init();
   bme680Init();
   am2320Init();
+  sht4xInit();
   sht31Init();
   aht10Init();
   DFRobotCOInit();
@@ -1052,6 +1058,18 @@ void Sensors::sht31Read() {
   }
 }
 
+void Sensors::sht4xRead() {
+  if (!isSensorRegistered(SENSORS::SSHT41)) return;
+  float temp1, humi1;
+  if (!sht4xReadValues(&temp1, &humi1)) return;
+  temp = temp1 - toffset;
+  humi = humi1;
+  dataReady = true;
+  DEBUG("-->[SLIB] SHT41 read\t\t: done!");
+  tempRegister(false);
+  unitRegister(UNIT::HUM);
+}
+
 void Sensors::CO2scd30Read() {
   if (!isSensorRegistered(SENSORS::SSCD30)) return;
   if (!scd30.dataReady() || !scd30.read()) return;
@@ -1620,6 +1638,7 @@ void Sensors::am2320Init() {
 }
 
 void Sensors::sht31Init() {
+  if (isSensorRegistered(SENSORS::SSHT41)) return;
   sensorAnnounce(SENSORS::SSHT31);
   sht31 = Adafruit_SHT31();
 #ifndef Wire1
@@ -1631,6 +1650,69 @@ void Sensors::sht31Init() {
   }
 #endif
   sensorRegister(SENSORS::SSHT31);
+}
+
+bool Sensors::sht4xBegin(TwoWire *wire) {
+  if (wire == nullptr) return false;
+  sht4xWire = wire;
+  sht4xWire->beginTransmission(SHT4X_DEFAULT_ADDR);
+  if (sht4xWire->endTransmission() != 0) return false;
+  sht4xWire->beginTransmission(SHT4X_DEFAULT_ADDR);
+  sht4xWire->write(SHT4X_CMD_SOFT_RESET);
+  if (sht4xWire->endTransmission() != 0) return false;
+  delay(2);
+  float temp1, humi1;
+  if (!sht4xReadValues(&temp1, &humi1)) {
+    sht4xWire = nullptr;
+    return false;
+  }
+  return true;
+}
+
+bool Sensors::sht4xReadValues(float *temperature, float *humidity) {
+  if (sht4xWire == nullptr) return false;
+  sht4xWire->beginTransmission(SHT4X_DEFAULT_ADDR);
+  sht4xWire->write(SHT4X_CMD_MEASURE_HIGH_PRECISION);
+  if (sht4xWire->endTransmission() != 0) return false;
+  delay(10);
+  if (sht4xWire->requestFrom((uint8_t)SHT4X_DEFAULT_ADDR, (uint8_t)6) != 6) return false;
+
+  uint8_t data[6];
+  for (uint8_t i = 0; i < 6; i++) data[i] = sht4xWire->read();
+
+  uint8_t crc = 0xFF;
+  for (uint8_t i = 0; i < 2; i++) {
+    crc ^= data[i];
+    for (uint8_t bit = 0; bit < 8; bit++) crc = (crc & 0x80) ? (crc << 1) ^ 0x31 : crc << 1;
+  }
+  if (crc != data[2]) return false;
+
+  crc = 0xFF;
+  for (uint8_t i = 3; i < 5; i++) {
+    crc ^= data[i];
+    for (uint8_t bit = 0; bit < 8; bit++) crc = (crc & 0x80) ? (crc << 1) ^ 0x31 : crc << 1;
+  }
+  if (crc != data[5]) return false;
+
+  uint16_t rawTemp = ((uint16_t)data[0] << 8) | data[1];
+  uint16_t rawHumi = ((uint16_t)data[3] << 8) | data[4];
+  *temperature = -45.0 + 175.0 * rawTemp / 65535.0;
+  *humidity = -6.0 + 125.0 * rawHumi / 65535.0;
+  if (*humidity < 0.0) *humidity = 0.0;
+  if (*humidity > 100.0) *humidity = 100.0;
+  return !isnan(*temperature) && !isnan(*humidity);
+}
+
+void Sensors::sht4xInit() {
+  sensorAnnounce(SENSORS::SSHT41);
+  if (!sht4xBegin(&Wire)) {
+#ifdef Wire1
+    if (!sht4xBegin(&Wire1)) return;
+#else
+    return;
+#endif
+  }
+  sensorRegister(SENSORS::SSHT41);
 }
 
 void Sensors::bme280Init() {

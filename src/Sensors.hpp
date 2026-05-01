@@ -15,6 +15,7 @@
 #include <SensirionI2CSen5x.h>
 #include <SensirionI2CSgp41.h>
 #include <SparkFun_Particle_Sensor_SN-GCJA5_Arduino_Library.h>
+#include <Wire.h>
 #include <cm1106_uart.h>
 #include <drivers/PMS5003T.h>
 #include <drivers/geiger.h>
@@ -171,6 +172,7 @@ typedef enum UNIT : size_t { SENSOR_UNITS } UNIT;
   X(SDFRO3, "DFRO3", 3)   \
   X(SCAJOE, "CAJOE", 3)   \
   X(SSGP41, "SGP41", 3)   \
+  X(SSHT41, "SHT41", 3)   \
   X(SCOUNT, "SCOUNT", 3)
 
 #define X(utype, uname, umaintype) utype,
@@ -244,6 +246,8 @@ class Sensors {
   AHTxx aht10;
   /// SHT31 object (Humidity and temperature)
   Adafruit_SHT31 sht31;
+  /// SHT4x I2C bus (Humidity and temperature)
+  TwoWire *sht4xWire = nullptr;
 
 #ifdef DHT11_ENABLED
   /// @deprecated DHT sensor variable
@@ -468,6 +472,10 @@ class Sensors {
 
   void sht31Init();
   void sht31Read();
+  void sht4xInit();
+  void sht4xRead();
+  bool sht4xBegin(TwoWire *wire);
+  bool sht4xReadValues(float *temperature, float *humidity);
 
   void CO2scd30Init();
   void CO2scd30Read();
