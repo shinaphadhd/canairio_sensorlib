@@ -139,6 +139,7 @@
   X(VOCI, "voci", "VOCI")    \
   X(NOX, "nox", "NOX")       \
   X(VOC, "voc", "VOC")       \
+  X(VBAT, "V", "VBAT")       \
   X(UCOUNT, "COUNT", "UCOUNT")
 
 #define X(unit, symbol, name) unit,
@@ -173,6 +174,7 @@ typedef enum UNIT : size_t { SENSOR_UNITS } UNIT;
   X(SCAJOE, "CAJOE", 3)   \
   X(SSGP41, "SGP41", 3)   \
   X(SSHT41, "SHT41", 3)   \
+  X(SVBAT, "VBAT", 0)     \
   X(SCOUNT, "SCOUNT", 3)
 
 #define X(utype, uname, umaintype) utype,
@@ -342,6 +344,12 @@ class Sensors {
 
   float getO3();
 
+  float getVBAT();
+
+  void setVBAT(float value);
+
+  void enableVBATSensor(bool enable);
+
   void enableGeigerSensor(int gpio);
 
   uint32_t getGeigerCPM(void);
@@ -454,6 +462,7 @@ class Sensors {
   float co;   // Carbon monoxide in ppm
   float no2;  // Nitrogen dioxide in ppm
   float o3;   // Ozone in ppm
+  float vbat = 0.0;
 
   void am2320Init();
   void am2320Read();

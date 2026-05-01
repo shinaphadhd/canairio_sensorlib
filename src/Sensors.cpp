@@ -94,6 +94,8 @@ bool Sensors::readAllSensors() {
   dhtRead();
 #endif
 
+  if (isUnitRegistered(UNIT::VBAT)) dataReady = true;
+
   disableWire1();
 
   printValues();
@@ -424,6 +426,16 @@ float Sensors::getNO2() { return no2; }
 /// get O3 value in ppm
 float Sensors::getO3() { return o3; }
 
+float Sensors::getVBAT() { return vbat; }
+
+void Sensors::setVBAT(float value) { vbat = value; }
+
+void Sensors::enableVBATSensor(bool enable) {
+  if (!enable) return;
+  sensorRegister(SENSORS::SVBAT);
+  unitRegister(UNIT::VBAT);
+}
+
 /**
  * @brief UART only: check if the UART sensor is registered
  * @return bool true if the UART sensor is registered, false otherwise.
@@ -639,6 +651,8 @@ float Sensors::getUnitValue(UNIT unit) {
       return no2;
     case O3:
       return o3;
+    case VBAT:
+      return vbat;
     default:
       return 0.0;
   }
@@ -2095,6 +2109,7 @@ void Sensors::resetAllVariables() {
   co = 0;
   no2 = 0.0;
   o3 = 0.0;
+  vbat = 0.0;
   if (rad != nullptr) rad->clear();
 }
 
